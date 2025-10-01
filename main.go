@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 	"github.com/pk0205/dropbox-2.0/db"
+	"github.com/pk0205/dropbox-2.0/handlers"
 )
 
 func main() {
@@ -45,6 +46,11 @@ func main() {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.Status(200).JSON(fiber.Map{"msg": "Hello, World!!!"})
 	})
+
+	app.Get("/api/users", handlers.GetUsers(conn))
+	app.Post("/api/user/signup", handlers.SignUp(conn))
+	app.Post("/api/user/login", handlers.Login(conn))
+	app.Post("/api/user/logout", handlers.Logout())
 
 	log.Fatal(app.Listen(":" + PORT))
 
