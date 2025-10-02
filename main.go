@@ -52,6 +52,10 @@ func main() {
 	app.Post("/api/user/login", handlers.Login(conn))
 	app.Post("/api/user/logout", handlers.Logout())
 
+	app.Post("/api/file/upload", handlers.UploadFile())
+    app.Get("/api/file/download/:fileName", handlers.DownloadFile())
+
+
 	log.Fatal(app.Listen(":" + PORT))
 
 }
