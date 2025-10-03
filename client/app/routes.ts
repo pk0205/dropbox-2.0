@@ -4,4 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("/auth", "routes/auth.tsx"),
   route("/dashboard", "routes/dashboard.tsx"),
+  route("/dashboard/folder/:folderId", "routes/dashboard.tsx", {
+    id: "dashboard-folder",
+  }),
 ] satisfies RouteConfig;
