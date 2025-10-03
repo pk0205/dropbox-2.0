@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { PublicRoute } from "~/components/PublicRoute";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -22,7 +23,7 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export default function AuthPage() {
+function AuthContent() {
   const navigate = useNavigate();
   const { login, signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -350,5 +351,13 @@ export default function AuthPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function Auth() {
+  return (
+    <PublicRoute>
+      <AuthContent />
+    </PublicRoute>
   );
 }

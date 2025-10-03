@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useAuth } from "~/contexts/AuthContext";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -27,6 +28,7 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -43,19 +45,34 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/auth")}
-                className="hidden sm:inline-flex"
-              >
-                Login
-              </Button>
-              <Button
-                onClick={() => navigate("/auth")}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-              >
-                Get Started
-              </Button>
+              {!isLoading && (
+                <>
+                  {isAuthenticated ? (
+                    <Button
+                      onClick={() => navigate("/dashboard")}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      Go to Dashboard
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        onClick={() => navigate("/auth")}
+                        className="hidden sm:inline-flex"
+                      >
+                        Login
+                      </Button>
+                      <Button
+                        onClick={() => navigate("/auth")}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                      >
+                        Get Started
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -87,11 +104,13 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <Button
-                onClick={() => navigate("/auth")}
+                onClick={() =>
+                  navigate(isAuthenticated ? "/dashboard" : "/auth")
+                }
                 size="lg"
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-8 py-6 group"
               >
-                Try it for free
+                {isAuthenticated ? "Go to Dashboard" : "Try it for free"}
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
               <Button variant="outline" size="lg" className="text-lg px-8 py-6">
@@ -289,11 +308,11 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
-              onClick={() => navigate("/auth")}
+              onClick={() => navigate(isAuthenticated ? "/dashboard" : "/auth")}
               size="lg"
               className="bg-white text-blue-600 hover:bg-gray-100 text-lg px-8 py-6"
             >
-              Start for Free
+              {isAuthenticated ? "Go to Dashboard" : "Start for Free"}
             </Button>
             <Button
               variant="outline"

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Button } from "~/components/ui/button";
+import { ProtectedRoute } from "~/components/ProtectedRoute";
 import {
   Card,
   CardContent,
@@ -157,7 +158,7 @@ const mockFiles: FileItem[] = [
   },
 ];
 
-export default function Dashboard() {
+function DashboardContent() {
   const navigate = useNavigate();
   const params = useParams();
   const [files, setFiles] = useState<FileItem[]>(mockFiles);
@@ -748,5 +749,13 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }
