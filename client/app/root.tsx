@@ -25,7 +25,15 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 1 minute
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

@@ -31,7 +31,16 @@ import {
   Archive,
   Home,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
+import { useAuth } from "~/contexts/AuthContext";
+import {
+  useFiles,
+  useUploadFile,
+  useDeleteFile,
+  useCreateFolder,
+} from "~/hooks/useFiles";
+import { fileAPI, type FileItem as APIFileItem } from "~/lib/api";
 export function meta() {
   return [
     { title: "Dashboard - Dropbox 2.0" },
@@ -39,7 +48,7 @@ export function meta() {
   ];
 }
 
-// Mock data types
+// Adapter type for display (maps API types to UI types)
 interface FileItem {
   id: string;
   name: string;
@@ -48,132 +57,53 @@ interface FileItem {
   mimeType?: string;
   createdAt: string;
   isShared?: boolean;
-  parentId?: string; // null or undefined means root level
+  parentId?: string;
 }
 
-// Mock data
-const mockFiles: FileItem[] = [
-  // Root level items
-  {
-    id: "1",
-    name: "Documents",
-    type: "folder",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "2",
-    name: "Photos",
-    type: "folder",
-    createdAt: "2024-01-10",
-    isShared: true,
-  },
-  {
-    id: "3",
-    name: "Project Proposal.pdf",
-    type: "file",
-    size: 2457600,
-    mimeType: "application/pdf",
-    createdAt: "2024-01-20",
-  },
-  {
-    id: "7",
-    name: "Music",
-    type: "folder",
-    createdAt: "2024-01-12",
-  },
-  {
-    id: "8",
-    name: "Backup.zip",
-    type: "file",
-    size: 104857600,
-    mimeType: "application/zip",
-    createdAt: "2024-01-21",
-  },
-  // Items inside Documents folder (parentId: "1")
-  {
-    id: "9",
-    name: "Resume.pdf",
-    type: "file",
-    size: 1024000,
-    mimeType: "application/pdf",
-    createdAt: "2024-01-16",
-    parentId: "1",
-  },
-  {
-    id: "10",
-    name: "Contract.docx",
-    type: "file",
-    size: 2048000,
-    mimeType: "application/msword",
-    createdAt: "2024-01-17",
-    parentId: "1",
-  },
-  // Items inside Photos folder (parentId: "2")
-  {
-    id: "4",
-    name: "Vacation.jpg",
-    type: "file",
-    size: 5242880,
-    mimeType: "image/jpeg",
-    createdAt: "2024-01-18",
-    isShared: true,
-    parentId: "2",
-  },
-  {
-    id: "11",
-    name: "Family.jpg",
-    type: "file",
-    size: 4194304,
-    mimeType: "image/jpeg",
-    createdAt: "2024-01-11",
-    parentId: "2",
-  },
-  {
-    id: "12",
-    name: "Landscape.png",
-    type: "file",
-    size: 8388608,
-    mimeType: "image/png",
-    createdAt: "2024-01-12",
-    parentId: "2",
-  },
-  // Items inside Music folder (parentId: "7")
-  {
-    id: "13",
-    name: "Song1.mp3",
-    type: "file",
-    size: 5242880,
-    mimeType: "audio/mpeg",
-    createdAt: "2024-01-13",
-    parentId: "7",
-  },
-  {
-    id: "14",
-    name: "Song2.mp3",
-    type: "file",
-    size: 6291456,
-    mimeType: "audio/mpeg",
-    createdAt: "2024-01-14",
-    parentId: "7",
-  },
-];
+// Convert API file to display file
+function mapAPIFileToDisplayFile(apiFile: APIFileItem): FileItem {
+  return {
+    id: apiFile.id,
+    name: apiFile.originalName,
+    type: apiFile.isFolder ? "folder" : "file",
+    size: apiFile.fileSize,
+    mimeType: apiFile.mimeType,
+    createdAt: new Date(apiFile.createdAt).toISOString().split("T")[0],
+    isShared: apiFile.isShared,
+    parentId: apiFile.parentId ?? undefined,
+  };
+}
 
 function DashboardContent() {
   const navigate = useNavigate();
   const params = useParams();
-  const [files, setFiles] = useState<FileItem[]>(mockFiles);
+  const { user, logout } = useAuth();
+
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null); // null = root
+  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(
+    undefined
+  );
 
   // Update currentFolderId when URL changes
   useEffect(() => {
-    const folderId = params.folderId || null;
+    const folderId = params.folderId || undefined;
     setCurrentFolderId(folderId);
   }, [params.folderId]);
+
+  // Fetch files using TanStack Query
+  const { data: apiFiles, isLoading, error } = useFiles(currentFolderId);
+  const uploadMutation = useUploadFile();
+  const deleteMutation = useDeleteFile();
+  const createFolderMutation = useCreateFolder();
+
+  // Convert API files to display files
+  const files: FileItem[] = apiFiles
+    ? apiFiles.map(mapAPIFileToDisplayFile)
+    : [];
 
   // Format file size
   const formatBytes = (bytes: number) => {
@@ -202,22 +132,25 @@ function DashboardContent() {
     return <File className="w-6 h-6 text-gray-500" />;
   };
 
-  // Handle file upload (mock)
-  const handleFileUpload = (uploadedFiles: FileList | null) => {
+  // Handle file upload (real)
+  const handleFileUpload = async (uploadedFiles: FileList | null) => {
     if (!uploadedFiles) return;
 
-    const newFiles: FileItem[] = Array.from(uploadedFiles).map((file) => ({
-      id: Math.random().toString(36).substring(2, 11),
-      name: file.name,
-      type: "file",
-      size: file.size,
-      mimeType: file.type,
-      createdAt: new Date().toISOString().split("T")[0],
-      parentId: currentFolderId || undefined, // Add to current folder
-    }));
-
-    setFiles([...newFiles, ...files]);
-    setShowUploadModal(false);
+    try {
+      // Upload each file
+      for (const file of Array.from(uploadedFiles)) {
+        await uploadMutation.mutateAsync({
+          file,
+          parentId: currentFolderId,
+        });
+      }
+      setShowUploadModal(false);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert(
+        `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   };
 
   // Handle drag and drop
@@ -236,11 +169,18 @@ function DashboardContent() {
     handleFileUpload(e.dataTransfer.files);
   };
 
-  // Handle delete (mock)
-  const handleDelete = (id: string) => {
+  // Handle delete (real)
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this item?")) {
-      setFiles(files.filter((f) => f.id !== id));
-      setSelectedFiles(selectedFiles.filter((sid) => sid !== id));
+      try {
+        await deleteMutation.mutateAsync(id);
+        setSelectedFiles(selectedFiles.filter((sid) => sid !== id));
+      } catch (error) {
+        console.error("Delete failed:", error);
+        alert(
+          `Delete failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
     }
   };
 
@@ -249,24 +189,31 @@ function DashboardContent() {
     alert(`Share link created for: ${files.find((f) => f.id === id)?.name}`);
   };
 
-  // Handle download (mock)
+  // Handle download (real)
   const handleDownload = (id: string) => {
     const file = files.find((f) => f.id === id);
-    alert(`Downloading: ${file?.name}`);
+    if (!file) return;
+
+    // Open download URL in new tab
+    const downloadUrl = fileAPI.download(id);
+    window.open(downloadUrl, "_blank");
   };
 
-  // Create folder (mock)
-  const handleCreateFolder = () => {
+  // Create folder (real)
+  const handleCreateFolder = async () => {
     const folderName = prompt("Enter folder name:");
     if (folderName) {
-      const newFolder: FileItem = {
-        id: Math.random().toString(36).substring(2, 11),
-        name: folderName,
-        type: "folder",
-        createdAt: new Date().toISOString().split("T")[0],
-        parentId: currentFolderId || undefined, // Create in current folder
-      };
-      setFiles([newFolder, ...files]);
+      try {
+        await createFolderMutation.mutateAsync({
+          folderName,
+          parentId: currentFolderId,
+        });
+      } catch (error) {
+        console.error("Create folder failed:", error);
+        alert(
+          `Create folder failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
     }
   };
 
@@ -296,25 +243,46 @@ function DashboardContent() {
     return breadcrumbs;
   };
 
-  // Filter files based on current folder and search
+  // Filter files based on search (folder filtering is handled by API)
   const filteredFiles = files.filter((file) => {
-    // Filter by current folder
-    const isInCurrentFolder =
-      (currentFolderId === null && !file.parentId) ||
-      file.parentId === currentFolderId;
-
     // Filter by search query
     const matchesSearch = file.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
 
-    return isInCurrentFolder && matchesSearch;
+    return matchesSearch;
   });
 
   // Calculate storage usage
   const totalStorage = files.reduce((acc, file) => acc + (file.size || 0), 0);
   const storageLimit = 1024 * 1024 * 1024; // 1GB mock limit
   const storagePercentage = (totalStorage / storageLimit) * 100;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-blue-500 mb-4" />
+          <p className="text-gray-600">Loading files...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">
+            Error loading files: {error.message}
+          </p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -334,13 +302,13 @@ function DashboardContent() {
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="sm">
                 <User className="w-4 h-4 mr-2" />
-                Profile
+                {user?.firstName || "Profile"}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  // In real app, call logout from AuthContext
+                onClick={async () => {
+                  await logout();
                   navigate("/");
                 }}
               >

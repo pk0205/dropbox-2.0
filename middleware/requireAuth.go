@@ -28,10 +28,16 @@ func RequireAuth(c *fiber.Ctx) error {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
-		if( time.Unix(int64(claims["exp"].(float64)), 0).Before(time.Now())) {
+		if time.Unix(int64(claims["exp"].(float64)), 0).Before(time.Now()) {
 			return c.Status(401).JSON(fiber.Map{"error": "Token expired"})
 		}
-		c.Locals("userName", claims["sub"])
+		
+		// Extract username and userId directly from JWT claims
+		username := claims["sub"].(string)
+		userID := claims["userId"].(string)
+		
+		c.Locals("userName", username)
+		c.Locals("userID", userID)
 	}
 
 	return c.Next()

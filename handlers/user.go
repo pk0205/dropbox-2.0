@@ -75,16 +75,17 @@ func SignUp(conn *pgx.Conn) fiber.Handler {
 			return c.Status(500).JSON(fiber.Map{"error": "Database error: " + err.Error()})
 		}
 
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"sub": user.Username,
-			"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
-		})
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub":    user.Username,
+		"userId": user.ID,
+		"exp":    time.Now().Add(time.Hour * 24 * 30).Unix(),
+	})
 
-		// Sign and get the complete encoded token as a string using the secret
-		tokenString, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
-		if err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "Error generating token: " + err.Error()})
-		}
+	// Sign and get the complete encoded token as a string using the secret
+	tokenString, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Error generating token: " + err.Error()})
+	}
 
 	c.Cookie(&fiber.Cookie{
 		Name:     "AuthToken",
@@ -136,8 +137,9 @@ func Login(conn *pgx.Conn) fiber.Handler {
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"sub": user.Username,
-			"exp": time.Now().Add(time.Hour * 24 * 30).Unix(),
+			"sub":    user.Username,
+			"userId": user.ID,
+			"exp":    time.Now().Add(time.Hour * 24 * 30).Unix(),
 		})
 
 		// Sign and get the complete encoded token as a string using the secret
