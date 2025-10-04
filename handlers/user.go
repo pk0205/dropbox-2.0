@@ -86,18 +86,21 @@ func SignUp(conn *pgx.Conn) fiber.Handler {
 			return c.Status(500).JSON(fiber.Map{"error": "Error generating token: " + err.Error()})
 		}
 
-		c.Cookie(&fiber.Cookie{
-			Name:     "AuthToken",
-			Value:    tokenString,
-			Expires:  time.Now().Add(time.Hour * 24 * 30),
-			HTTPOnly: true,
-			Secure: false,
-			SameSite: "Lax",
-			Path: "/",
-			Domain: "",
-		})
-		return c.Status(201).JSON(user)
-	}
+	c.Cookie(&fiber.Cookie{
+		Name:     "AuthToken",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 24 * 30),
+		HTTPOnly: true,
+		Secure: false,
+		SameSite: "Lax",
+		Path: "/",
+		Domain: "",
+	})
+	
+	// Clear password before returning user data
+	user.Password = ""
+	return c.Status(201).JSON(user)
+}
 }
 
 func Login(conn *pgx.Conn) fiber.Handler {
@@ -143,17 +146,46 @@ func Login(conn *pgx.Conn) fiber.Handler {
 			return c.Status(500).JSON(fiber.Map{"error": "Error generating token: " + err.Error()})
 		}
 
-		c.Cookie(&fiber.Cookie{
-			Name:     "AuthToken",
-			Value:    tokenString,
-			Expires:  time.Now().Add(time.Hour * 24 * 30),
-			HTTPOnly: true,
-		})
+	c.Cookie(&fiber.Cookie{
+		Name:     "AuthToken",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 24 * 30),
+		HTTPOnly: true,
+		Secure: false,
+		SameSite: "Lax",
+		Path: "/",
+		Domain: "",
+	})
 
-		return c.Status(200).JSON(fiber.Map{
-			"message": "Login successful",
-			"token": tokenString,
-		})
+	// Password field is already empty, just return user
+	return c.Status(200).JSON(user)
+}
+}
+
+func GetMe(conn *pgx.Conn) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Get username from context (set by RequireAuth middleware)
+		username, ok := c.Locals("userName").(string)
+		if !ok || username == "" {
+			return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+		}
+
+		// Query user by username
+		var user models.User
+		var hashedPassword string
+		err := conn.QueryRow(context.Background(),
+			"SELECT * FROM users WHERE username=$1", username).Scan(
+			&user.ID, &user.FirstName, &user.LastName, &user.Username, &user.Email, &hashedPassword)
+
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+			}
+			return c.Status(500).JSON(fiber.Map{"error": "Database error: " + err.Error()})
+		}
+
+		// Password field is already empty, just return user
+		return c.Status(200).JSON(user)
 	}
 }
 

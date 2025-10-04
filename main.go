@@ -63,10 +63,11 @@ func main() {
 	app.Get("/api/share/:token/info", handlers.GetShareInfo(conn))
 
 	// Protected routes - require authentication
-	api := app.Group("/api", middleware.RequireAuth(conn))
+	api := app.Group("/api", middleware.RequireAuth)
 
 	// User routes
 	api.Get("/users", handlers.GetUsers(conn))
+	api.Get("/me", handlers.GetMe(conn))
 
 	// File management routes
 	api.Get("/files", handlers.ListFiles(conn))
